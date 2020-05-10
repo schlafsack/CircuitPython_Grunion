@@ -18,7 +18,6 @@ class Gauge:
 
     @staticmethod
     def _write_cmd(uart, cmd, sleep=False):
-        #print(cmd)
         data = bytearray(cmd.encode('iso-8859-1'))
         data.append(0xFF)
         data.append(0xFF)
@@ -55,13 +54,28 @@ class Gauge:
         self._temp = 0.0
         self._flow = 0.0
 
+        self._mode_refresh = True
         self._dial_refresh = True
         self._vol_refresh = True
         self._temp_refresh = True
         self._flow_refresh = True
 
-        self._t1 = time.monotonic_ns()  # timer used for vol/temp refresh
-        self._t2 = time.monotonic_ns()  # timer used for dial/flow refresh
+        self._t1 = 0  # timestamp of last vol/temp refresh
+        self._t2 = 0  # timestamp of last dial/flow refresh
+
+    def reset(self):
+
+        self._mode = Gauge.COUNT_UP
+        self._dial = 0
+        self._vol = 0.0
+        self._temp = 0.0
+        self._flow = 0.0
+
+        self._mode_refresh = True
+        self._dial_refresh = True
+        self._vol_refresh = True
+        self._temp_refresh = True
+        self._flow_refresh = True
 
     @property
     def mode(self):
@@ -114,8 +128,7 @@ class Gauge:
             self._dial = dial
             self._dial_refresh = True
 
-    def tick(self):
-        timestamp = time.monotonic_ns()
+    def tick(self, timestamp):
 
         # if we've exceeded the mode/vol/temp refresh frequency, do a refresh
         if timestamp - self._t1 > self.MODE_VOL_TEMP_REFRESH_FREQ:
@@ -135,7 +148,7 @@ class Gauge:
         if timestamp - self._t2 > self.DIAL_FLOW_REFRESH_FREQ:
             self._t2 = timestamp
             if self._dial_refresh:
-                # shenanigans required because the flow value overlaps the dial.
+                # shenanigans required to prevent flicker, because the flow value overlaps the dial.
                 Gauge._write_cmd(self._uart, "ref_stop")
                 Gauge._write_dial(self._uart, self._dial_id, self._dial)
                 Gauge._write_cmd(self._uart, "ref {}".format(self._flow_id), True)
