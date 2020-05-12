@@ -1,6 +1,30 @@
 # coding=iso-8859-1
+
+# The MIT License (MIT)
+#
+# Copyright (c) 2020 Tom Greasley
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
 import math
 import random
+from sgfilter import SGFilter
 
 
 # A mock water flow/temperature sensor.
@@ -16,6 +40,11 @@ class Sensor:
         self._tick = 0
         self._value = 0
 
+        # Setup the sensor filter
+        self._sensor_buf = []
+        self._sensor_filter = SGFilter(nr=25, nl=25)
+
+
     def reset(self):
         self._tick = 0
         self._value = 0
@@ -24,7 +53,7 @@ class Sensor:
     def tick(self, timestamp):
         value = 0
         while value == 0:
-            value = self._next_value()
+            value = self._read_flow_rate()
         self._value = value
 
     @property
@@ -37,6 +66,20 @@ class Sensor:
     @property
     def temperature(self):
         return random.uniform(10, 11)
+
+    def _read_flow_rate(self):
+
+        # Fill the sample window
+        while len(self._sensor_buf) < 51:
+            self._sensor_buf.append(self._next_value())
+
+        # Add the current sensor flow rate to the buffer
+        self._sensor_buf.pop(0)
+        self._sensor_buf.append(self._next_value())
+
+        # Filter the values and return the midpoint value
+        f = self._sensor_filter.filter(self._sensor_buf)
+        return f[26] if f[26] > 0 else 0.0
 
     def _next_value(self):
         x1 = self.XMAX * self._tick / (self.SAMPLE_SIZE - 1)

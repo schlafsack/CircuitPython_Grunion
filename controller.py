@@ -1,6 +1,28 @@
 # coding=iso-8859-1
+
+# The MIT License (MIT)
+#
+# Copyright (c) 2020 Tom Greasley
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
 from encoder import Encoder
-from sgfilter import SGFilter
 
 
 class Controller:
@@ -16,32 +38,30 @@ class Controller:
         self._gauge = gauge
 
         self._open = False
-        self._temp = 0.0
-        self._flow = 0.0
-        self._vol = 0.0
+        self._temp = 0
+        self._flow = 0
+        self._prev_flow = 0
+        self._vol = 0
 
         self._enc_button = False
         self._enc_dblclick = False
         self._enc_change = False
-        self._enc_val = 0.0
-
-        # Setup the sensor filter
-        self._sensor_buf = []
-        self._sensor_filter = SGFilter(nr=25, nl=25)
+        self._enc_val = 0
 
     def reset(self):
 
-        print("resetting {}.".format(self._name))
+        print("{}: reset".format(self._name))
 
         self._open = False
-        self._temp = 0.0
-        self._flow = 0.0
-        self._vol = 0.0
+        self._temp = 0
+        self._flow = 0
+        self._prev_flow = 0
+        self._vol = 0
 
         self._enc_button = False
         self._enc_dblclick = False
         self._enc_change = False
-        self._enc_val = 0.0
+        self._enc_val = 0
 
         self._valve.reset()
         self._encoder.reset()
@@ -77,20 +97,6 @@ class Controller:
 
         self._prev_timestamp = timestamp
 
-    def _read_flow_rate(self):
-
-        # Fill the sample window
-        while len(self._sensor_buf) < 51:
-            self._sensor_buf.append(self._sensor.flow_rate)
-
-        # Add the current sensor flow rate to the buffer
-        self._sensor_buf.pop(0)
-        self._sensor_buf.append(self._sensor.flow_rate)
-
-        # Filter the values and return the midpoint value
-        f = self._sensor_filter.filter(self._sensor_buf)
-        return f[26] if f[26] > 0 else 0.0
-
     def _read_state(self):
 
         # Read the valve state
@@ -98,7 +104,8 @@ class Controller:
 
         # Read the sensor values
         self._temp = self._sensor.temperature
-        self._flow = self._read_flow_rate()
+        self._prev_flow = self._flow
+        self._flow = self._sensor.flow_rate
 
         # Read the encoder state
         self._enc_button = self._encoder.button
@@ -111,20 +118,28 @@ class Controller:
         # If there was a manual change to via the encoder, use the new value; Otherwise calculate the new volume.
         if self._enc_change:
             self._vol = self._enc_val
+            print("{}: vol={}".format(self._name, self._enc_val))
         else:
             period = (timestamp - self._prev_timestamp) * pow(10, -9)  # NOTE: flow is in litre/min, work in secs
-            delta = (self._flow/60) * period
+            flow = (self._flow + self._prev_flow)/120
+            delta = flow * period
             self._vol -= delta
 
         # If the button was pushed toggle the valve
         if self._enc_button:
             self._open = not self._open
+            if self._open:
+                print("{}: start".format(self._name, self._open))
+            print("{}: open={}".format(self._name, self._open))
 
         # If we have dispensed the configured volume, shut the valve
         if self._vol <= 0:
-            self._vol = 0.0
-            self._enc_val = 0.0
-            self._open = False
+            self._vol = 0
+            self._enc_val = 0
+            if self._open:
+                self._open = False
+                print("{}: stop".format(self._name, self._open))
+                print("{}: open={}".format(self._name, self._open))
 
         # If the encoder was double-clicked reset everything
         if self._enc_dblclick:
@@ -135,10 +150,10 @@ class Controller:
         # Write the valve state
         if self._open:
             self._valve.open()
-            self._encoder.led_color(Encoder.LED_GREEN)
+            self._encoder.led_color(Encoder.LED_BLUE)
         else:
             self._valve.close()
-            self._encoder.led_color(Encoder.LED_BLUE)
+            self._encoder.led_color(Encoder.LED_GREEN)
 
         # Write the encoder state
         self._encoder.value = self._vol
@@ -147,4 +162,3 @@ class Controller:
         self._gauge.vol = self._vol
         self._gauge.flow = self._flow
         self._gauge.temp = self._temp
-

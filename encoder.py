@@ -1,4 +1,27 @@
 # coding=iso-8859-1
+
+# The MIT License (MIT)
+#
+# Copyright (c) 2020 Tom Greasley
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
 import time
 from i2c_encoder.encoder import Encoder as I2CEncoder
 
@@ -6,12 +29,13 @@ from i2c_encoder.encoder import Encoder as I2CEncoder
 class Encoder:
 
     REFRESH_FREQ = 100000000
-    MIN_VALUE = 0.0
-    MAX_VALUE = 80.0
+    MIN_VALUE = 0
+    MAX_VALUE = 80
 
     LED_RED = 1
     LED_GREEN = 2
     LED_BLUE = 3
+    LED_AMBER = 4
 
     @staticmethod
     def _build_i2c_encoder(i2c, address):
@@ -26,17 +50,17 @@ class Encoder:
         enc.cmax_float = Encoder.MAX_VALUE
         enc.cval_float = 0  # Initial value
         enc.istep_float = 0.25  # Encoder step size
-        enc.rled = 0x00  # Turn the LEDs blue
+        enc.rled = 0x00  # Turn the LEDs black
         enc.gled = 0x00
-        enc.bled = 0x25
+        enc.bled = 0x00
         enc.gp1conf_mode = 0b11  # Configure the GPIO inputs
         enc.gp1conf_pul = 1
         return enc
 
     def __init__(self, i2c, address):
         self.enc = self._build_i2c_encoder(i2c, address)
-        self._t1 = time.monotonic_ns()  # timer used for state refresh
-        self._value = 0.0
+        self._t1 = 0  # timer used for state refresh
+        self._value = 0
         self._value_refresh = True
         self._dblclick = False
         self._button = False
@@ -45,8 +69,8 @@ class Encoder:
         self._change = False
 
     def reset(self):
-        self._t1 = time.monotonic_ns()  # timer used for state refresh
-        self._value = 0.0
+        self._t1 = 0  # timer used for state refresh
+        self._value = 0
         self._value_refresh = True
         self._button = False
         self._dblclick = False
@@ -88,7 +112,11 @@ class Encoder:
         return result
 
     def led_color(self, color):
-        if self.LED_GREEN == color:
+        if self.LED_AMBER == color:
+            self.enc.rled = 0x25  # Turn the LEDs green
+            self.enc.gled = 0x15
+            self.enc.bled = 0x00
+        elif self.LED_GREEN == color:
             self.enc.rled = 0x00  # Turn the LEDs green
             self.enc.gled = 0x25
             self.enc.bled = 0x00
