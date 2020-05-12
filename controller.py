@@ -48,6 +48,19 @@ class Controller:
         self._gauge.reset()
         self._sensor.reset()
 
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def volume(self):
+        return self._vol
+
+    @volume.setter
+    def volume(self, vol):
+        self._vol = vol
+        self._enc_val = vol
+
     def tick(self, timestamp):
 
         # Input ticks

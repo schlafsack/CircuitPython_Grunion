@@ -1,3 +1,4 @@
+# coding=iso-8859-1
 import time
 from i2c_encoder.encoder import Encoder as I2CEncoder
 
