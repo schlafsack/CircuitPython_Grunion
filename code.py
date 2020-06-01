@@ -38,7 +38,7 @@ from sensor import Sensor
 
 # from mock_sensor import Sensor
 
-REFRESH_FREQ = 10000000  # Overall system freq. (100th sec)
+REFRESH_FREQ = 1000000  # Overall system freq. (100th sec)
 STATE_FREQ = 2000000000  # Persist state to NVM freq. (2 secs)
 NVM_STATE_FORMAT = "ff"  # Left and right volume
 NVM_STATE_LENGTH = struct.calcsize(NVM_STATE_FORMAT)
@@ -126,3 +126,4 @@ with I2C(SCL, SDA, frequency=100000) as i2c, UART(TX, RX, baudrate=115200) as ua
             enc_left.led_color(Encoder.LED_RED)
         if enc_right:
             enc_right.led_color(Encoder.LED_RED)
+

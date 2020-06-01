@@ -120,9 +120,6 @@ class Sensor:
     TEMP_C = TEMP_C_12
     FLOW_C = FLOW_C_12
 
-    TEMP_BUFFER_SIZE = 30
-    FLOW_BUFFER_SIZE = 15
-
     CH_1 = 0
     CH_2 = 1
     CH_3 = 2
@@ -135,12 +132,6 @@ class Sensor:
         self._temp_ch = temp_ch
         self._flow = 0
         self._temp = 0
-
-        self._temp_buffer = []
-        self._temp_filter = SGFilter(nr=Sensor.TEMP_BUFFER_SIZE, nl=Sensor.TEMP_BUFFER_SIZE)
-
-        self._flow_buffer = []
-        self._flow_filter = SGFilter(nr=Sensor.FLOW_BUFFER_SIZE, nl=Sensor.FLOW_BUFFER_SIZE)
 
         return
 
@@ -161,47 +152,20 @@ class Sensor:
     def flow_rate(self):
         return self._flow
 
-    def _read_temp(self):
-    
+    def _read_temp(self):    
         self._receiver.channel = self._temp_ch
-
-        # Ensure that the buffer is full
-        self._fill_buffer(self._temp_buffer, Sensor.TEMP_BUFFER_SIZE, "temp", self._temp_ch)
-
         # Read the next filtered value
-        self._temp_buffer.pop(0)
         raw = self._receiver.raw_value()
-        self._temp_buffer.append(raw)
-        filtered_data = self._temp_filter.filter(self._temp_buffer)
-        raw_filtered = filtered_data[round(Sensor.TEMP_BUFFER_SIZE/2)]
-        temp = (Sensor.TEMP_M * raw_filtered) + Sensor.TEMP_C
-
+        temp = (Sensor.TEMP_M * raw) + Sensor.TEMP_C
         return temp if temp > 0 else 0
 
     def _read_flow(self):
 
         self._receiver.channel = self._flow_ch
-
-        # Ensure that the buffer is full
-        self._fill_buffer(self._flow_buffer, Sensor.FLOW_BUFFER_SIZE, "flow", self._flow_ch)
-
         # Read the next filtered value
-        self._flow_buffer.pop(0)
         raw = self._receiver.raw_value()
-        self._flow_buffer.append(raw)
-        filtered_data = self._flow_filter.filter(self._flow_buffer)
-        raw_filtered = filtered_data[Sensor.FLOW_BUFFER_SIZE]
-        flow = (Sensor.FLOW_M * raw_filtered) + Sensor.FLOW_C
-
+        flow = (Sensor.FLOW_M * raw) + Sensor.FLOW_C        
         return flow if flow > 1 else 0
-
-    def _fill_buffer(self, buffer, size, name, ch):
-        if len(buffer) < (size * 2) + 1:
-            print("buffering {} on ch {}".format(name, ch), end="")
-            while len(buffer) < (size * 2) + 1:
-                print(".", end="")
-                buffer.append(self._receiver.raw_value())
-            print("")
 
     @staticmethod
     def _create_receiver(i2c):

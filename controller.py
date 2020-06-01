@@ -48,6 +48,8 @@ class Controller:
         self._enc_change = False
         self._enc_val = 0
 
+        self._calibration = 1
+
     def reset(self):
 
         print("{}: reset".format(self._name))
@@ -122,7 +124,7 @@ class Controller:
         else:
             period = (timestamp - self._prev_timestamp) * pow(10, -9)  # NOTE: flow is in litre/min, work in secs
             flow = (self._flow + self._prev_flow)/120
-            delta = flow * period
+            delta = flow * period * self._calibration
             self._vol -= delta
 
         # If the button was pushed toggle the valve
